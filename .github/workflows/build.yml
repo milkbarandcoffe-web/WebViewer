@@ -5,6 +5,9 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -20,11 +23,6 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: '8.6'
-
       - name: Cache Gradle
         uses: actions/cache@v4
         with:
@@ -34,35 +32,33 @@ jobs:
           key: gradle-${{ hashFiles('**/*.gradle*', '**/libs.versions.toml') }}
           restore-keys: gradle-
 
+      - name: Download Gradle wrapper JAR
+        run: |
+          mkdir -p gradle/wrapper
+          curl -fL \
+            "https://raw.githubusercontent.com/gradle/gradle/v8.6.0/gradle/wrapper/gradle-wrapper.jar" \
+            -o gradle/wrapper/gradle-wrapper.jar
+          ls -lh gradle/wrapper/gradle-wrapper.jar
+
+      - name: Grant Gradle permissions
+        run: chmod +x gradlew
+
       - name: Generate debug keystore
         run: |
           mkdir -p keystore
           keytool -genkey -v \
             -keystore keystore/debug.keystore \
             -alias androiddebugkey \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -storepass android \
-            -keypass android \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass android -keypass android \
             -dname "CN=Android Debug,O=Android,C=US"
 
       - name: Build Release APK
-        run: gradle assembleRelease --no-daemon --stacktrace
-        env:
-          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx2g"
-
-      - name: Sign APK with debug key
         run: |
-          $ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | tail -1)/apksigner sign \
-            --ks keystore/debug.keystore \
-            --ks-key-alias androiddebugkey \
-            --ks-pass pass:android \
-            --key-pass pass:android \
-            --out app/build/outputs/apk/release/app-release-signed.apk \
-            app/build/outputs/apk/release/app-release-unsigned.apk || \
-          cp app/build/outputs/apk/release/app-release*.apk \
-             app/build/outputs/apk/release/app-release-signed.apk || true
+          ./gradlew assembleRelease \
+            --no-daemon \
+            --stacktrace \
+            -Dorg.gradle.jvmargs="-Xmx2g -XX:MaxMetaspaceSize=512m"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -72,4 +68,4 @@ jobs:
           retention-days: 30
 
       - name: APK info
-        run: ls -lh app/build/outputs/apk/release/ || true
+        run: ls -lh app/build/outputs/apk/release/ || echo "No APK found"
