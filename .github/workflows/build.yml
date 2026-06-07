@@ -1,8 +1,6 @@
 name: Build APK
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
 
 env:
@@ -39,7 +37,7 @@ jobs:
           curl -fL \
             "https://raw.githubusercontent.com/gradle/gradle/v8.6.0/gradle/wrapper/gradle-wrapper.jar" \
             -o gradle/wrapper/gradle-wrapper.jar
-          echo "JAR size: $(ls -lh gradle/wrapper/gradle-wrapper.jar)"
+          echo "JAR: $(ls -lh gradle/wrapper/gradle-wrapper.jar)"
 
       - name: Grant Gradle permissions
         run: chmod +x gradlew
