@@ -7,6 +7,7 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx2g"
 
 jobs:
   build:
@@ -38,7 +39,7 @@ jobs:
           curl -fL \
             "https://raw.githubusercontent.com/gradle/gradle/v8.6.0/gradle/wrapper/gradle-wrapper.jar" \
             -o gradle/wrapper/gradle-wrapper.jar
-          ls -lh gradle/wrapper/gradle-wrapper.jar
+          echo "JAR size: $(ls -lh gradle/wrapper/gradle-wrapper.jar)"
 
       - name: Grant Gradle permissions
         run: chmod +x gradlew
@@ -54,11 +55,7 @@ jobs:
             -dname "CN=Android Debug,O=Android,C=US"
 
       - name: Build Release APK
-        run: |
-          ./gradlew assembleRelease \
-            --no-daemon \
-            --stacktrace \
-            -Dorg.gradle.jvmargs="-Xmx2g -XX:MaxMetaspaceSize=512m"
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
