@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.WebViewer" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">#FFFFFF</item>
+        <item name="colorPrimaryVariant">#000000</item>
+        <item name="colorOnPrimary">#000000</item>
+        <item name="colorSurface">#000000</item>
+        <item name="android:windowBackground">#000000</item>
+        <item name="android:statusBarColor">#000000</item>
+        <item name="android:navigationBarColor">#000000</item>
+        <!-- Dialogs scuri -->
+        <item name="alertDialogTheme">@style/Theme.WebViewer.Dialog</item>
+    </style>
+
+    <style name="Theme.WebViewer.Dialog" parent="Theme.Material3.DayNight.Dialog.Alert">
+        <item name="colorSurface">#111111</item>
+        <item name="colorOnSurface">#FFFFFF</item>
+        <item name="android:background">#111111</item>
+        <item name="colorPrimary">#FFFFFF</item>
+        <item name="colorOnPrimary">#000000</item>
+        <item name="android:textColor">#FFFFFF</item>
+    </style>
+</resources>
