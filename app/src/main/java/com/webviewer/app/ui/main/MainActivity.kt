@@ -94,35 +94,31 @@ class MainActivity : AppCompatActivity() {
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun setupWebView() {
-        binding.webView.apply {
-            settings.apply {
-                javaScriptEnabled = true
-                domStorageEnabled = true           // LocalStorage
-                databaseEnabled = true
-                allowFileAccess = true
-                allowContentAccess = true
-                setSupportZoom(true)
-                builtInZoomControls = true
-                displayZoomControls = false
-                loadWithOverviewMode = true
-                useWideViewPort = true
-                mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-                cacheMode = WebSettings.LOAD_DEFAULT
-                // User agent standard Chrome Mobile — necessario per Google Login
-                userAgentString = "Mozilla/5.0 (Linux; Android 13; SM-S911B) " +
-                    "AppleWebKit/537.36 (KHTML, like Gecko) " +
-                    "Chrome/124.0.0.0 Mobile Safari/537.36"
-            }
-
-            // Abilita cookies
-            CookieManager.getInstance().apply {
-                setAcceptCookie(true)
-                setAcceptThirdPartyCookies(this@apply, true)
-            }
-
-            webViewClient = AppWebViewClient()
-            webChromeClient = AppWebChromeClient()
+        val wv = binding.webView
+        wv.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            databaseEnabled = true
+            allowFileAccess = true
+            allowContentAccess = true
+            setSupportZoom(true)
+            builtInZoomControls = true
+            displayZoomControls = false
+            loadWithOverviewMode = true
+            useWideViewPort = true
+            mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+            cacheMode = WebSettings.LOAD_DEFAULT
+            userAgentString = "Mozilla/5.0 (Linux; Android 13; SM-S911B) " +
+                "AppleWebKit/537.36 (KHTML, like Gecko) " +
+                "Chrome/124.0.0.0 Mobile Safari/537.36"
         }
+        // Cookie: wv passato esplicitamente — risolve il type mismatch
+        CookieManager.getInstance().apply {
+            setAcceptCookie(true)
+            setAcceptThirdPartyCookies(wv, true)
+        }
+        wv.webViewClient = AppWebViewClient()
+        wv.webChromeClient = AppWebChromeClient()
     }
 
     // ---- WebViewClient ----
