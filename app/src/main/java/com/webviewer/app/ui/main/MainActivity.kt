@@ -135,6 +135,9 @@ class MainActivity : AppCompatActivity() {
             binding.progressBar.visibility = View.GONE
             vm.setUrl(url)
             CookieManager.getInstance().flush()
+            // Chiudi automaticamente il banner GAS dopo 800ms
+            // (tempo necessario per il rendering del DOM)
+            view.postDelayed({ dismissGasBanner(view) }, 800)
         }
 
         override fun onReceivedError(
@@ -173,6 +176,57 @@ class MainActivity : AppCompatActivity() {
                     startActivity(intent)
                 }
             } catch (e: Exception) { /* ignora */ }
+        }
+    }
+
+    /**
+     * Chiude il banner "Questa applicazione è stata creata da un utente di Google Apps Script"
+     * L'avviso GAS ha sempre la stessa struttura DOM — selettori multipli per robustezza.
+     * Delay 800ms per attendere il rendering completo.
+     */
+    private fun dismissGasBanner(view: WebView) {
+        val js = """
+            (function() {
+                // Selettori possibili per il pulsante X del banner GAS
+                var selectors = [
+                    // Pulsante dismiss generico GAS
+                    'button[aria-label="Chiudi"]',
+                    'button[aria-label="Close"]',
+                    'button[aria-label="Dismiss"]',
+                    // Classe specifica banner GAS (cambia raramente)
+                    '.dismissButton',
+                    '.close-button',
+                    // SVG icon X dentro pulsante — cerca il genitore cliccabile
+                    'button svg[focusable="false"]',
+                    // Fallback: primo pulsante nel banner in alto
+                    'header button',
+                    '.notice-bar button',
+                    '[role="banner"] button'
+                ];
+                for (var i = 0; i < selectors.length; i++) {
+                    var el = document.querySelector(selectors[i]);
+                    if (el) {
+                        // Risali al pulsante se abbiamo trovato un figlio
+                        var btn = el.closest('button') || el;
+                        btn.click();
+                        return 'clicked: ' + selectors[i];
+                    }
+                }
+                // Fallback finale: cerca per testo vicino alla X visiva
+                var buttons = document.querySelectorAll('button');
+                for (var b = 0; b < buttons.length; b++) {
+                    var rect = buttons[b].getBoundingClientRect();
+                    // La X è in alto a destra — x > 80% larghezza, y < 200px
+                    if (rect.right > window.innerWidth * 0.75 && rect.top < 200 && rect.width < 80) {
+                        buttons[b].click();
+                        return 'clicked by position';
+                    }
+                }
+                return 'not found';
+            })();
+        """.trimIndent()
+        view.evaluateJavascript(js) { result ->
+            android.util.Log.d("GasBanner", "dismiss result: $result")
         }
     }
 
@@ -252,17 +306,54 @@ class MainActivity : AppCompatActivity() {
     // ---- Mini icona settings (angolo alto destro) ----
 
     private fun setupSettingsButton() {
-        binding.btnSettings.apply {
-            // TAP breve → Settings
-            setOnClickListener {
-                startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
-            }
+        val btn = binding.btnSettings
+        var dX = 0f; var dY = 0f
+        var startX = 0f; var startY = 0f
+        var dragging = false
 
-            // Pressione lunga → MacroDroid toggle
-            setOnLongClickListener {
-                handleMacroDroidLongPress()
-                true
+        btn.setOnTouchListener { v, event ->
+            when (event.action) {
+                android.view.MotionEvent.ACTION_DOWN -> {
+                    dX = v.x - event.rawX
+                    dY = v.y - event.rawY
+                    startX = event.rawX
+                    startY = event.rawY
+                    dragging = false
+                    false
+                }
+                android.view.MotionEvent.ACTION_MOVE -> {
+                    val moveX = Math.abs(event.rawX - startX)
+                    val moveY = Math.abs(event.rawY - startY)
+                    if (moveX > 8f || moveY > 8f) {
+                        dragging = true
+                        // Limiti schermo
+                        val parent = v.parent as android.view.View
+                        val newX = (event.rawX + dX)
+                            .coerceIn(0f, (parent.width - v.width).toFloat())
+                        val newY = (event.rawY + dY)
+                            .coerceIn(0f, (parent.height - v.height).toFloat())
+                        v.x = newX
+                        v.y = newY
+                        v.performClick()
+                    }
+                    true
+                }
+                android.view.MotionEvent.ACTION_UP -> {
+                    if (!dragging) {
+                        // TAP breve → Settings
+                        startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
+                    }
+                    dragging = false
+                    true
+                }
+                else -> false
             }
+        }
+
+        // Pressione lunga → MacroDroid
+        btn.setOnLongClickListener {
+            handleMacroDroidLongPress()
+            true
         }
     }
 
