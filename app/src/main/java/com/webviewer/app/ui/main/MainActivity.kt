@@ -137,7 +137,7 @@ class MainActivity : AppCompatActivity() {
             CookieManager.getInstance().flush()
             // Chiudi automaticamente il banner GAS dopo 800ms
             // (tempo necessario per il rendering del DOM)
-            view.postDelayed({ dismissGasBanner(view) }, 800)
+            view.postDelayed({ checkGasBanner(view) }, 800)
         }
 
         override fun onReceivedError(
@@ -184,49 +184,47 @@ class MainActivity : AppCompatActivity() {
      * L'avviso GAS ha sempre la stessa struttura DOM — selettori multipli per robustezza.
      * Delay 800ms per attendere il rendering completo.
      */
-    private fun dismissGasBanner(view: WebView) {
+    /**
+     * Controlla se il banner GAS è presente nel DOM.
+     * Se sì → rende l'icona ⚙ trasparente al tocco (pass-through).
+     * Se no → ripristina il tocco normale.
+     * Chiamato ad ogni onPageFinished.
+     */
+    private fun checkGasBanner(view: WebView) {
         val js = """
             (function() {
-                // Selettori possibili per il pulsante X del banner GAS
-                var selectors = [
-                    // Pulsante dismiss generico GAS
-                    'button[aria-label="Chiudi"]',
-                    'button[aria-label="Close"]',
-                    'button[aria-label="Dismiss"]',
-                    // Classe specifica banner GAS (cambia raramente)
-                    '.dismissButton',
-                    '.close-button',
-                    // SVG icon X dentro pulsante — cerca il genitore cliccabile
-                    'button svg[focusable="false"]',
-                    // Fallback: primo pulsante nel banner in alto
-                    'header button',
-                    '.notice-bar button',
-                    '[role="banner"] button'
-                ];
-                for (var i = 0; i < selectors.length; i++) {
-                    var el = document.querySelector(selectors[i]);
-                    if (el) {
-                        // Risali al pulsante se abbiamo trovato un figlio
-                        var btn = el.closest('button') || el;
-                        btn.click();
-                        return 'clicked: ' + selectors[i];
-                    }
+                var banners = document.querySelectorAll(
+                    '[role="banner"], header, .notice-bar, .app-script-notice'
+                );
+                for (var i = 0; i < banners.length; i++) {
+                    var r = banners[i].getBoundingClientRect();
+                    if (r.top < 10 && r.height > 20 && r.height < 300) return 'found';
                 }
-                // Fallback finale: cerca per testo vicino alla X visiva
-                var buttons = document.querySelectorAll('button');
-                for (var b = 0; b < buttons.length; b++) {
-                    var rect = buttons[b].getBoundingClientRect();
-                    // La X è in alto a destra — x > 80% larghezza, y < 200px
-                    if (rect.right > window.innerWidth * 0.75 && rect.top < 200 && rect.width < 80) {
-                        buttons[b].click();
-                        return 'clicked by position';
-                    }
+                // Fallback: c'è un pulsante X in alto a destra?
+                var btns = document.querySelectorAll('button');
+                for (var b = 0; b < btns.length; b++) {
+                    var r = btns[b].getBoundingClientRect();
+                    if (r.right > window.innerWidth * 0.75 && r.top < 150 && r.width < 80) return 'found';
                 }
                 return 'not found';
             })();
         """.trimIndent()
         view.evaluateJavascript(js) { result ->
-            android.util.Log.d("GasBanner", "dismiss result: $result")
+            val bannerVisible = result?.contains("found") == true
+            runOnUiThread {
+                // Se banner visibile → icona trasparente al tocco
+                // setAlpha visivo basso per indicare stato pass-through
+                if (bannerVisible) {
+                    binding.btnSettings.alpha = 0.15f
+                    binding.btnSettings.isClickable = false
+                    binding.btnSettings.isFocusable = false
+                } else {
+                    binding.btnSettings.alpha = 1f
+                    binding.btnSettings.isClickable = true
+                    binding.btnSettings.isFocusable = true
+                }
+            }
+            android.util.Log.d("GasBanner", "banner: $result → clickable: ${!bannerVisible}")
         }
     }
 
@@ -340,7 +338,6 @@ class MainActivity : AppCompatActivity() {
                 }
                 android.view.MotionEvent.ACTION_UP -> {
                     if (!dragging) {
-                        // TAP breve → Settings
                         startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
                     }
                     dragging = false
